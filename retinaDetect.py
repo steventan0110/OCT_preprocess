@@ -194,8 +194,8 @@ def retinaDetector(img_vol,header,paramSet,doplots):
     
     sigma_ax = float(sigma_ax)
     sigma_lat = float(sigma_lat)
-    grad = nd.gaussian_filter(img_vol, sigma = (sigma_ax,0, 0), mode='nearest', order=0,truncate=2*np.round(2*sigma_ax) + 1) 
-    grad = nd.gaussian_filter(grad, sigma = (0,sigma_lat,0), mode='nearest', order=0,truncate=2*np.round(2*sigma_lat) + 1)
+    grad = nd.gaussian_filter(img_vol, sigma = (sigma_ax,0, 1), mode='nearest', order=0,truncate=2*np.round(2*sigma_ax) + 1) 
+    grad = nd.gaussian_filter(grad, sigma = (0,sigma_lat,1), mode='nearest', order=0,truncate=2*np.round(2*sigma_lat) + 1)
     # for i in range(grad.shape[-1]):
     #     grad[:,:,i] = nd.sobel(grad[:,:,i], mode='nearest', axis =0)
     grad = nd.sobel(grad, mode='nearest', axis =0)
