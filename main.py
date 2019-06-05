@@ -29,7 +29,7 @@ preproc_params['retinadetector_type'] = options['types']
 
 scanner_type = 'spectralis'
 [img_vol,retina_mask,bds,shifts] = pd.preprocessData(BScans,header,preproc_params,scanner_type,1)
-plt.imshow(img_vol[:,:,0], cmap= 'gray')
+plt.imshow(img_vol[:,:,0])
 plt.plot
 plt.show()
 

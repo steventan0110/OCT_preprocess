@@ -128,14 +128,14 @@ def retinaDetector(img_vol,header,paramSet,doplots):
     img_vol[np.isnan(img_vol)] = 0
 
     # #fill in from the left side:
-    inds = np.argmax(img_vol, axis = 1) 
+    inds = np.argmax(img_vol>0, axis = 1) 
 
    
     #in matlab the y-axis is not automatically deleted, so here the loop needs to change
     for i in range(img_vol.shape[0]): 
         for j in range(img_vol.shape[2]):
             p = inds[i,j]
-            if p > 1 and p < i:
+            if p > 0 and p < i-1:
                 if p < img_vol.shape[1] - 2:
                     #avoid using low intensity edge pixels
                     img_vol[i,:(p+1), j] = img_vol[i,(p+2), j]
@@ -144,7 +144,7 @@ def retinaDetector(img_vol,header,paramSet,doplots):
     
     #fill in from the right side
     temp_vol = np.fliplr(img_vol > 0) #index of last nonzero value
-    inds = np.argmax(temp_vol, axis = 1)
+    inds = np.argmax(temp_vol>0, axis = 1)
     inds = img_vol.shape[1] - inds -1 #use -1 instead of + 1 for numpy
     
     for i in range(img_vol.shape[0]): 
@@ -161,11 +161,11 @@ def retinaDetector(img_vol,header,paramSet,doplots):
     mv = np.mean(img_vol)
     
     #same process for inds
-    inds = np.argmax(temp_vol, axis = 0)
+    inds = np.argmax(temp_vol>0, axis = 0)
     for i in range(img_vol.shape[1]):
         for j in range(img_vol.shape[2]):
             p = inds[i,j]
-            if p > 1:
+            if p > 0:
                 if  p < img_vol.shape[0] -2:
                     #avoid using low intensity edge pixels
                     if img_vol[p+2,i,j] < mv:
@@ -178,7 +178,7 @@ def retinaDetector(img_vol,header,paramSet,doplots):
     #fill in from the bottom
 
     temp_vol = np.flipud(img_vol > 0) #index of last nonzero value
-    inds = np.argmax(temp_vol, axis = 0)
+    inds = np.argmax(temp_vol>0, axis = 0)
     inds = img_vol.shape[0] - inds - 1 #use -1 instead of + 1 for numpy
     for i in range(img_vol.shape[1]):
         for j in range(img_vol.shape[2]):
@@ -196,12 +196,12 @@ def retinaDetector(img_vol,header,paramSet,doplots):
     sigma_lat = float(sigma_lat)
     grad = nd.gaussian_filter(img_vol, sigma = (sigma_ax,0, 0), mode='nearest', order=0,truncate=2*np.round(2*sigma_ax) + 1) 
     grad = nd.gaussian_filter(grad, sigma = (0,sigma_lat,0), mode='nearest', order=0,truncate=2*np.round(2*sigma_lat) + 1)
-   
+    # for i in range(grad.shape[-1]):
+    #     grad[:,:,i] = nd.sobel(grad[:,:,i], mode='nearest', axis =0)
     grad = nd.sobel(grad, mode='nearest', axis =0)
-
-    grad_o = grad
+    grad_o = grad.copy()
     max1pos = np.argmax(grad, axis =0)
-
+    
     #to check if max1pos is vector, we have to use the shape of max1pos
     m_size = max1pos.shape
     if m_size[0] == 1 or m_size[1] == 1:
@@ -238,12 +238,15 @@ def retinaDetector(img_vol,header,paramSet,doplots):
 
     #Fill in BM boundary
     grad = grad_o
+    
     #BM is largest negative gradient below the ISOS
     for i in range(grad.shape[1]):
         for j in range(grad.shape[2]):
             grad[:int(isos[i,j]+isosThresh), i ,j] = 0
             if (isos[i,j]+maxdist_bm) <= grad.shape[0]:
                 grad[int(isos[i,j]+maxdist_bm):,i,j] = 0
+
+
 
     #To encourage boundary points closer to the top of the image, weight linearly by depth
     isos_temp = (grad.shape[0] - (isos[np.newaxis,:,:]  + maxdist_bm))
@@ -257,7 +260,8 @@ def retinaDetector(img_vol,header,paramSet,doplots):
         print('reach here') #shouldn't reach here with given input
         bot =np.transpose(bot)
     bm  = bot 
-   
+
+
 
     #detect outliers
     if bsc_indep: #not reached in the given data
@@ -268,9 +272,9 @@ def retinaDetector(img_vol,header,paramSet,doplots):
         bpt = (abs(th - th_med) > dc_thresh)
     else:
         mf_k = mf_k.astype(int)
-        ilm_med = sg.medfilt2d(ilm.astype(float), [mf_k[0,0], mf_k[0,1]])
-        isos_med = sg.medfilt2d(isos.astype(float), [mf_k[0,0], mf_k[0,1]])
-        bm_med = sg.medfilt2d(bm.astype(float), [mf_k[0,0], mf_k[0,1]])
+        ilm_med = nd.median_filter(ilm.astype(float), [mf_k[0,0], mf_k[0,1]])
+        isos_med = nd.median_filter(isos.astype(float), [mf_k[0,0], mf_k[0,1]])
+        bm_med = nd.median_filter(bm.astype(float), [mf_k[0,0], mf_k[0,1]])
         dc_thresh = float(dc_thresh)
         ilmt = np.abs(ilm - ilm_med)
         isost = np.abs(isos - isos_med)
@@ -287,6 +291,9 @@ def retinaDetector(img_vol,header,paramSet,doplots):
     isos[bpt] = np.nan
     bm[bpt] = np.nan
     nbpt = 0
+
+    
+    
     
     if np.any(np.any(bpt)): #since bpt is 2-D
         nbpt = np.sum(bpt)
@@ -359,6 +366,14 @@ def retinaDetector(img_vol,header,paramSet,doplots):
     #define the shift amount here
     stemp = np.mean(bm, axis=0) + np.round(img_vol.shape[0]/2) - np.mean(bm, axis=0)
     shifts = bm - stemp.reshape((1,-1))
+
+    # plt.imshow(img_vol[:,:,0])
+    # plt.plot(ilm[:,0])
+    # plt.plot(isos[:,0])
+    # plt.plot(bm[:,0])
+    # plt.show()
+    # quit()
+    
 
     return [retinaMask, shifts, boundaries, nbpt]
     

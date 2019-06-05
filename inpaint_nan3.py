@@ -12,7 +12,11 @@ def inpaint_nans(image):
         inpaint = image[max(np.where(valid_mask[:,i])[0]),i]
         image[-1,i] = inpaint
         valid_mask[-1,i] = True
-
+    bscans = np.where(~valid_mask[0,:])[0]
+    for i in bscans:
+        inpaint = image[min(np.where(valid_mask[:,i])[0]),i]
+        image[0,i] = inpaint
+        valid_mask[0,i] = True
 
     coords = np.array(np.nonzero(valid_mask)).T
     values = image[valid_mask]
